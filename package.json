@@ -1,0 +1,29 @@
+{
+  "name": "agg-watcher",
+  "version": "1.0.0",
+  "description": "Aggregate chokidar events!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chokidar",
+    "aggregate",
+    "events"
+  ],
+  "author": "Bartosz Gościński <bargosc@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "async-done": "^1.2.0",
+    "chokidar": "^1.4.3"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bgoscinski/agg-watcher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bgoscinski/agg-watcher/issues"
+  },
+  "homepage": "https://github.com/bgoscinski/agg-watcher#readme"
+}
