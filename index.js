@@ -1,104 +1,137 @@
 'use strict'
 
-exports.watch = function aggregatingWatcher (dirs, opts, fn) {
+const debug = require('debug')('agg-watcher')
+
+exports.isEventEmitter = (maybeEmitter) => (
+  typeof maybeEmitter === 'object' &&
+  typeof maybeEmitter.on === 'function' &&
+  typeof maybeEmitter.emit === 'function'
+)
+
+exports.isCallback = (maybeCallback) => (
+  typeof maybeCallback === 'function'
+)
+
+exports.aggregate = function (emitter, callback, setup) {
+  if (!exports.isEventEmitter(emitter)) {
+    throw new TypeError(`First parameter expected to be an EventEmitter instance. Got ${emitter}`)
+  }
+
+  if (!exports.isCallback(callback)) {
+    throw new TypeError(`Second parameter expected to be a function. Got ${callback}`)
+  }
+
+  if (setup && !exports.isCallback(setup)) {
+    throw new TypeError(`Third parameter expected to be a function. Got ${setup}`)
+  }
+
   const unlinked = new Map()
   const changed = new Map()
   const added = new Map()
-  let isExecuting = false
-  let watcher
 
-  if (typeof opts === 'function') {
-    fn = opts
-    opts = {}
-  }
-
-  if (!opts) {
-    opts = {}
-  }
-
-  if (typeof fn !== 'function') {
-    throw new TypeError(`'fn' parameter expected to be function`);
-  }
-
-  const chokidarOpts = {}
-  let throttle = 100
-  Object.keys(opts).forEach((key) => {
-    const value = opts[key]
-
-    switch (key) {
-      case 'throttle': throttle = value === false ? value : Math.max(0, +value); break
-      default: chokidarOpts[key] = opts[key]
-    }
-  })
-
-  const isNonEmpty = () => 0 < (
-    added.size +
-    changed.size +
-    unlinked.size
+  const hasValues = () => (
+    unlinked.size ||
+    changed.size ||
+    added.size
   )
 
-  const pop = () => {
-    const ret = {
+  const popCache = () => {
+    const cache = {
       unlinked: Array.from(unlinked.values()),
       changed: Array.from(changed.values()),
-      added: Array.from(added.values())
+      added: Array.from(added.values()),
     }
 
     unlinked.clear()
     changed.clear()
     added.clear()
 
-    return ret
+    return cache
   }
 
-  const tryExecute = () => {
-    if (!isExecuting && isNonEmpty()) {
-      isExecuting = true
-
-      const execute = (done) => fn(pop(), done)
-      const attempt = () => {
-        require('async-done')(execute, (err) => {
-          isExecuting = false
-          if (err) watcher.emit('error', err)
-          tryExecute()
-        })
-      }
-
-      if (throttle === false) {
-        attempt()
-      } else {
-        setTimeout(attempt, throttle)
-      }
-    }
-  }
-
-  const unlinkAggregator = (path, stat) => {
-    const value = arguments.length > 1 ? [path, stat] : [path]
-    added.delete(path)
-    changed.delete(path)
-    unlinked.set(path, value)
-    tryExecute()
-  }
-
-  const changeAggregator = (path, stat) => {
-    const value = arguments.length > 1 ? [path, stat] : [path]
-    changed.set(path, value)
-    tryExecute()
-  }
-
-  const addAggregator = (path, stat) => {
-    const value = arguments.length > 1 ? [path, stat] : [path]
-    if (unlinked.has(path)) {
-      unlinked.delete(path)
-      changed.set(path, value)
+  const executeCallback = (done) => {
+    if (hasValues()) {
+      const cache = popCache();
+      debug('executing fn')
+      return callback(cache, done)
     } else {
-      added.set(path, value)
+      debug('execution skipped - cache empty')
+      done()
     }
-    tryExecute()
   }
 
-  return watcher = require('chokidar').watch(dirs, chokidarOpts)
-    .on('unlink', unlinkAggregator)
-    .on('change', changeAggregator)
-    .on('add', addAggregator)
+  let isExecuting = false
+  const scheduleExecute = () => {
+    debug('requested scheduling execution')
+
+    if (!isExecuting && hasValues()) {
+      isExecuting = true
+      require('async-done')(executeCallback, (err) => {
+        debug('execution complete')
+        isExecuting = false
+        if (err) emitter.emit('error', err)
+        scheduleExecute()
+      })
+
+      debug('execution scheduled')
+    } else {
+      debug('execution schedule skipped')
+    }
+  }
+
+  if (setup) {
+    isExecuting = true
+    require('async-done')(setup, () => {
+      isExecuting = false
+      scheduleExecute()
+    })
+  }
+
+  const onUnlink = exports.createUnlinkAggregator({ unlinked, changed, added });
+  emitter.on('unlink', (path, maybeStat) => {
+    debug('unlink', path, maybeStat)
+    onUnlink(path, maybeStat ? [path, maybeStat] : [path])
+    scheduleExecute()
+  })
+
+  const onChange = exports.createChangeAggregator({ unlinked, changed, added });
+  emitter.on('change', (path, maybeStat) => {
+    debug('change', path, maybeStat)
+    onChange(path, maybeStat ? [path, maybeStat] : [path])
+    scheduleExecute()
+  })
+
+  const onAdd = exports.createAddAggregator({ unlinked, changed, added });
+  emitter.on('add', (path, maybeStat) => {
+    debug('add', path, maybeStat)
+    onAdd(path, maybeStat ? [path, maybeStat] : [path])
+    scheduleExecute()
+  })
+
+  return emitter
+}
+
+exports.createUnlinkAggregator = ({ unlinked, changed, added }) => (key, args) => {
+  if (added.has(key)) {
+    // was added, now is deleted => noop
+    added.delete(key)
+  } else {
+    changed.delete(key)
+    unlinked.set(key, args)
+  }
+}
+
+exports.createChangeAggregator = ({ unlinked, changed, added }) => (key, args) => {
+  if (!added.has(key)) {
+    changed.set(key, args)
+  }
+}
+
+exports.createAddAggregator = ({ unlinked, changed, added }) => (key, args) => {
+  if (unlinked.has(key)) {
+    unlinked.delete(key)
+    changed.set(key, args)
+  } else {
+    added.set(key, args)
+  }
 }
