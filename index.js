@@ -2,38 +2,37 @@
 
 const debug = require('debug')('agg-watcher')
 
-exports.isEventEmitter = (maybeEmitter) => (
+exports.isEventEmitter = maybeEmitter =>
   typeof maybeEmitter === 'object' &&
   typeof maybeEmitter.on === 'function' &&
   typeof maybeEmitter.emit === 'function'
-)
 
-exports.isCallback = (maybeCallback) => (
-  typeof maybeCallback === 'function'
-)
+exports.isCallback = maybeCallback => typeof maybeCallback === 'function'
 
-exports.aggregate = function (emitter, callback, setup) {
+exports.aggregate = function(emitter, callback, setup) {
   if (!exports.isEventEmitter(emitter)) {
-    throw new TypeError(`First parameter expected to be an EventEmitter instance. Got ${emitter}`)
+    throw new TypeError(
+      `First parameter expected to be an EventEmitter instance. Got ${emitter}`,
+    )
   }
 
   if (!exports.isCallback(callback)) {
-    throw new TypeError(`Second parameter expected to be a function. Got ${callback}`)
+    throw new TypeError(
+      `Second parameter expected to be a function. Got ${callback}`,
+    )
   }
 
   if (setup && !exports.isCallback(setup)) {
-    throw new TypeError(`Third parameter expected to be a function. Got ${setup}`)
+    throw new TypeError(
+      `Third parameter expected to be a function. Got ${setup}`,
+    )
   }
 
   const unlinked = new Map()
   const changed = new Map()
   const added = new Map()
 
-  const hasValues = () => (
-    unlinked.size ||
-    changed.size ||
-    added.size
-  )
+  const hasValues = () => unlinked.size || changed.size || added.size
 
   const popCache = () => {
     const cache = {
@@ -49,9 +48,9 @@ exports.aggregate = function (emitter, callback, setup) {
     return cache
   }
 
-  const executeCallback = (done) => {
+  const executeCallback = done => {
     if (hasValues()) {
-      const cache = popCache();
+      const cache = popCache()
       debug('executing fn')
       return callback(cache, done)
     } else {
@@ -66,7 +65,7 @@ exports.aggregate = function (emitter, callback, setup) {
 
     if (!isExecuting && hasValues()) {
       isExecuting = true
-      require('async-done')(executeCallback, (err) => {
+      require('async-done')(executeCallback, err => {
         debug('execution complete')
         isExecuting = false
         if (err) emitter.emit('error', err)
@@ -87,21 +86,21 @@ exports.aggregate = function (emitter, callback, setup) {
     })
   }
 
-  const onUnlink = exports.createUnlinkAggregator({ unlinked, changed, added });
+  const onUnlink = exports.createUnlinkAggregator({ unlinked, changed, added })
   emitter.on('unlink', (path, maybeStat) => {
     debug('unlink', path, maybeStat)
     onUnlink(path, maybeStat ? [path, maybeStat] : [path])
     scheduleExecute()
   })
 
-  const onChange = exports.createChangeAggregator({ unlinked, changed, added });
+  const onChange = exports.createChangeAggregator({ unlinked, changed, added })
   emitter.on('change', (path, maybeStat) => {
     debug('change', path, maybeStat)
     onChange(path, maybeStat ? [path, maybeStat] : [path])
     scheduleExecute()
   })
 
-  const onAdd = exports.createAddAggregator({ unlinked, changed, added });
+  const onAdd = exports.createAddAggregator({ unlinked, changed, added })
   emitter.on('add', (path, maybeStat) => {
     debug('add', path, maybeStat)
     onAdd(path, maybeStat ? [path, maybeStat] : [path])
@@ -111,7 +110,10 @@ exports.aggregate = function (emitter, callback, setup) {
   return emitter
 }
 
-exports.createUnlinkAggregator = ({ unlinked, changed, added }) => (key, args) => {
+exports.createUnlinkAggregator = ({ unlinked, changed, added }) => (
+  key,
+  args,
+) => {
   if (added.has(key)) {
     // was added, now is deleted => noop
     added.delete(key)
@@ -121,7 +123,10 @@ exports.createUnlinkAggregator = ({ unlinked, changed, added }) => (key, args) =
   }
 }
 
-exports.createChangeAggregator = ({ unlinked, changed, added }) => (key, args) => {
+exports.createChangeAggregator = ({ unlinked, changed, added }) => (
+  key,
+  args,
+) => {
   if (!added.has(key)) {
     changed.set(key, args)
   }
