@@ -14,8 +14,8 @@
   "author": "Bartosz Gościński <bargosc@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "async-done": "^1.2.2",
-    "debug": "^2.2.0"
+    "async-done": "^1.0.0",
+    "debug": "^4.0.0"
   },
   "repository": {
     "type": "git",
@@ -26,6 +26,6 @@
   },
   "homepage": "https://github.com/bgoscinski/agg-watcher#readme",
   "devDependencies": {
-    "ava": "^0.15.2"
+    "ava": "^2.2.0"
   }
 }
