@@ -4,14 +4,9 @@
 
 const debug = require('debug')('agg-watcher')
 
-const isEventEmitter = maybeEmitter =>
-  typeof maybeEmitter === 'object' &&
-  typeof maybeEmitter.on === 'function' &&
-  typeof maybeEmitter.emit === 'function'
+exports.aggregate = aggregate
 
-const isCallback = maybeCallback => typeof maybeCallback === 'function'
-
-exports.aggregate = function(emitter, callback, setup) {
+function aggregate(emitter, callback, setup) {
   if (!isEventEmitter(emitter)) {
     throw new TypeError(
       `First parameter expected to be an EventEmitter instance. Got ${emitter}`,
@@ -88,57 +83,69 @@ exports.aggregate = function(emitter, callback, setup) {
     })
   }
 
-  const onUnlink = createUnlinkAggregator({ unlinked, changed, added })
-  emitter.on('unlink', (path, maybeStat) => {
+  const aggUnlink = createUnlinkAggregator({ unlinked, changed, added })
+  emitter.on('unlink', function onUnlink(path, maybeStat) {
     debug('unlink', path, maybeStat)
-    onUnlink(path, maybeStat ? [path, maybeStat] : [path])
+    aggUnlink(path, maybeStat ? [path, maybeStat] : [path])
     scheduleExecute()
   })
 
-  const onChange = createChangeAggregator({ unlinked, changed, added })
-  emitter.on('change', (path, maybeStat) => {
+  const aggChange = createChangeAggregator({ unlinked, changed, added })
+  emitter.on('change', function onChange(path, maybeStat) {
     debug('change', path, maybeStat)
-    onChange(path, maybeStat ? [path, maybeStat] : [path])
+    aggChange(path, maybeStat ? [path, maybeStat] : [path])
     scheduleExecute()
   })
 
-  const onAdd = createAddAggregator({ unlinked, changed, added })
-  emitter.on('add', (path, maybeStat) => {
+  const aggAdd = createAddAggregator({ unlinked, changed, added })
+  emitter.on('add', function onAdd(path, maybeStat) {
     debug('add', path, maybeStat)
-    onAdd(path, maybeStat ? [path, maybeStat] : [path])
+    aggAdd(path, maybeStat ? [path, maybeStat] : [path])
     scheduleExecute()
   })
 
   return emitter
 }
 
-const createUnlinkAggregator = ({ unlinked, changed, added }) => (
-  key,
-  args,
-) => {
-  if (added.has(key)) {
-    // was added, now is deleted => noop
-    added.delete(key)
-  } else {
-    changed.delete(key)
-    unlinked.set(key, args)
+function createUnlinkAggregator({ unlinked, changed, added }) {
+  return function aggregateUnlink(key, args) {
+    if (added.has(key)) {
+      // was added, now is deleted => noop
+      added.delete(key)
+    } else {
+      changed.delete(key)
+      unlinked.set(key, args)
+    }
   }
 }
 
-const createChangeAggregator = ({ unlinked, changed, added }) => (
-  key,
-  args,
-) => {
-  if (!added.has(key)) {
-    changed.set(key, args)
+function createChangeAggregator({ unlinked, changed, added }) {
+  return function aggregateChange(key, args) {
+    if (!added.has(key)) {
+      changed.set(key, args)
+    }
   }
 }
 
-const createAddAggregator = ({ unlinked, changed, added }) => (key, args) => {
-  if (unlinked.has(key)) {
-    unlinked.delete(key)
-    changed.set(key, args)
-  } else {
-    added.set(key, args)
+function createAddAggregator({ unlinked, changed, added }) {
+  return function aggregateAdd(key, args) {
+    if (unlinked.has(key)) {
+      unlinked.delete(key)
+      changed.set(key, args)
+    } else {
+      added.set(key, args)
+    }
   }
+}
+
+function isEventEmitter(maybeEmitter) {
+  return (
+    typeof maybeEmitter === 'object' &&
+    typeof maybeEmitter.on === 'function' &&
+    typeof maybeEmitter.emit === 'function'
+  )
+}
+
+function isCallback(maybeCallback) {
+  return typeof maybeCallback === 'function'
 }
