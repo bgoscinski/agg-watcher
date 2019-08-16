@@ -1,3 +1,5 @@
+// @ts-check
+
 const test = require('ava').default
 const aggregate = require('./index.js').aggregate;
 
@@ -71,14 +73,12 @@ test.cb('should allow passing setup callback and aggregate events until it compl
   const {emitter, add, change, unlink} = setupTest()
   let setupCalls = 0;
   let callbackCalls = 0;
-  t.plan(8)
+  t.plan(7)
 
   function setup(done) {
-    setupComplete = false
     t.is(++setupCalls, 1)
 
     setTimeout(() => {
-      setupComplete = true
       t.pass('setup complete')
       unlink('c', {})
       done()
@@ -92,7 +92,6 @@ test.cb('should allow passing setup callback and aggregate events until it compl
 
   aggregate(emitter, (changes, done) => {
     t.is(++callbackCalls, 1)
-    t.is(setupComplete, true)
 
     t.deepEqual(changes.added, [['a', {}]])
     t.deepEqual(changes.changed, [['b', {}]])
