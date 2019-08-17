@@ -45,42 +45,51 @@ function aggregate(emitter, callback, setup) {
     return cache
   }
 
-  const executeCallback = done => {
+  function execute() {
     if (hasValues()) {
-      const cache = popCache()
-      debug('executing fn')
-      return callback(cache, done)
+      debug('executing action callback')
+      return callback(popCache())
     } else {
-      debug('execution skipped - cache empty')
-      done()
+      debug('cache empty - execution skipped')
     }
   }
-
   let isExecuting = false
   const scheduleExecute = () => {
     debug('requested scheduling execution')
 
-    if (!isExecuting && hasValues()) {
-      isExecuting = true
-      require('async-done')(executeCallback, err => {
-        debug('execution complete')
+    if (isExecuting || !hasValues()) {
+      return debug('execution schedule skipped')
+    }
+
+    isExecuting = true
+    Promise.resolve()
+      .then(execute)
+      .catch(err => {
+        debug('action callback failed')
+        emitter.emit('error', err)
+      })
+      .finally(() => {
         isExecuting = false
-        if (err) emitter.emit('error', err)
         scheduleExecute()
       })
-
-      debug('execution scheduled')
-    } else {
-      debug('execution schedule skipped')
-    }
+    debug('execution scheduled')
   }
 
   if (setup) {
     isExecuting = true
-    require('async-done')(setup, () => {
-      isExecuting = false
-      scheduleExecute()
-    })
+    Promise.resolve()
+      .then(() => {
+        debug('executing setup callback')
+        return setup()
+      })
+      .catch(err => {
+        debug('setup callback failed')
+        emitter.emit('error', err)
+      })
+      .finally(() => {
+        isExecuting = false
+        scheduleExecute()
+      })
   }
 
   const aggUnlink = createUnlinkAggregator({ unlinked, changed, added })

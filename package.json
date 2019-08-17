@@ -14,7 +14,6 @@
   "author": "Bartosz Gościński <bargosc@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "async-done": "^1.0.0",
     "debug": "^4.0.0"
   },
   "repository": {
