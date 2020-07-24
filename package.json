@@ -1,6 +1,6 @@
 {
   "name": "agg-watcher",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Aggregate chokidar events!",
   "main": "index.js",
   "scripts": {
