@@ -64,7 +64,7 @@ function aggregate(emitter, callback, setup) {
     isExecuting = true
     Promise.resolve()
       .then(execute)
-      .catch(err => {
+      .catch((err) => {
         debug('action callback failed')
         emitter.emit('error', err)
       })
@@ -82,7 +82,7 @@ function aggregate(emitter, callback, setup) {
         debug('executing setup callback')
         return setup()
       })
-      .catch(err => {
+      .catch((err) => {
         debug('setup callback failed')
         emitter.emit('error', err)
       })

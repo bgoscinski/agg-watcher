@@ -3,10 +3,10 @@
 const test = require('ava').default
 const aggregate = require('./index.js').aggregate
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const setupTest = () => {
-  const emitter = new (require('events')).EventEmitter()
+  const emitter = new (require('events').EventEmitter)()
   return {
     emitter,
     add: (file, stat) => emitter.emit('add', file, stat),
@@ -26,11 +26,11 @@ function flow(handlers) {
   }
 }
 
-test.cb('should invoke callback upon adding', t => {
+test.cb('should invoke callback upon adding', (t) => {
   const { emitter, add, change, unlink } = setupTest()
   t.plan(3)
 
-  aggregate(emitter, changes => {
+  aggregate(emitter, (changes) => {
     t.deepEqual(changes.added, [['a', {}]])
     t.deepEqual(changes.changed, [])
     t.deepEqual(changes.unlinked, [])
@@ -40,11 +40,11 @@ test.cb('should invoke callback upon adding', t => {
   add('a', {})
 })
 
-test.cb('should invoke callback upon changing', t => {
+test.cb('should invoke callback upon changing', (t) => {
   const { emitter, add, change, unlink } = setupTest()
   t.plan(3)
 
-  aggregate(emitter, changes => {
+  aggregate(emitter, (changes) => {
     t.deepEqual(changes.added, [])
     t.deepEqual(changes.changed, [['a', {}]])
     t.deepEqual(changes.unlinked, [])
@@ -54,11 +54,11 @@ test.cb('should invoke callback upon changing', t => {
   change('a', {})
 })
 
-test.cb('should invoke callback upon unlinking', t => {
+test.cb('should invoke callback upon unlinking', (t) => {
   const { emitter, add, change, unlink } = setupTest()
   t.plan(3)
 
-  aggregate(emitter, changes => {
+  aggregate(emitter, (changes) => {
     t.deepEqual(changes.added, [])
     t.deepEqual(changes.changed, [])
     t.deepEqual(changes.unlinked, [['a', {}]])
@@ -70,14 +70,14 @@ test.cb('should invoke callback upon unlinking', t => {
 
 test.cb(
   'should allow passing setup callback and aggregate events until it completes',
-  t => {
+  (t) => {
     const { emitter, add, change, unlink } = setupTest()
     let setupCalls = 0
     t.plan(6)
 
     aggregate(
       emitter,
-      changes => {
+      (changes) => {
         t.deepEqual(changes.added, [['a', {}]])
         t.deepEqual(changes.changed, [['b', {}]])
         t.deepEqual(changes.unlinked, [['c', {}]])
@@ -103,14 +103,14 @@ test.cb(
   },
 )
 
-test.cb('should aggregate events while callback is executing', t => {
+test.cb('should aggregate events while callback is executing', (t) => {
   const { emitter, add, change, unlink } = setupTest()
   t.plan(9)
 
   aggregate(
     emitter,
     flow([
-      async changes => {
+      async (changes) => {
         add('a')
 
         t.deepEqual(changes.added, [['a']])
@@ -121,7 +121,7 @@ test.cb('should aggregate events while callback is executing', t => {
         add('b')
       },
 
-      async changes => {
+      async (changes) => {
         change('a')
 
         t.deepEqual(changes.added, [['a'], ['b']])
@@ -132,7 +132,7 @@ test.cb('should aggregate events while callback is executing', t => {
         unlink('b')
       },
 
-      changes => {
+      (changes) => {
         t.deepEqual(changes.added, [])
         t.deepEqual(changes.changed, [['a']])
         t.deepEqual(changes.unlinked, [['b']])
@@ -147,11 +147,11 @@ test.cb('should aggregate events while callback is executing', t => {
 
 test.cb(
   'should "flatten" out opposite events in single aggregation frame',
-  t => {
+  (t) => {
     const { emitter, add, change, unlink } = setupTest()
     t.plan(3)
 
-    aggregate(emitter, changes => {
+    aggregate(emitter, (changes) => {
       t.deepEqual(changes.added, [['c']])
       t.deepEqual(changes.changed, [['a']])
       t.deepEqual(changes.unlinked, [['d']])
