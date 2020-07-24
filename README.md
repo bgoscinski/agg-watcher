@@ -23,7 +23,7 @@ Where:
 const { aggregate } = require('agg-watcher')
 
 aggregate(chokidar, async ({ added, changed, unlinked }) => {
-  // this fn won't be called again previous invocation completes
+  // this fn won't be called again until current invocation completes
 
   const all = [...added, ...changed, ...unlinked]
   for (const [path, maybeStat] of all) {
